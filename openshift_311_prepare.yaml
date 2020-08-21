@@ -1,0 +1,85 @@
+# Master node
+# -----------
+# yum -y install git 
+# yum install -y wget
+# yum -y install epel-release
+# yum -y install python-pip
+
+# pip install ansible==2.6.5
+# git clone https://github.com/openshift/openshift-ansible
+# cd openshift-ansible
+# git checkout release-3.11
+
+---
+- hosts: nodes
+  gather_facts: no
+  pre_tasks:
+    - name: 'install python2'
+      raw: sudo yum install -y python
+
+  tasks:
+
+    - name: install the latest version of Docker
+      yum: state=latest name={{ item }}
+      with_items:
+        - docker
+        - NetworkManager
+
+    - name: enable network-manager
+      shell: systemctl enable NetworkManager && systemctl start NetworkManager
+
+    - name: docker storage conf file
+      copy:
+        content: "DEVS=/dev/xvdb\nVG=docker-vg\n"
+        dest: /etc/sysconfig/docker-storage-setup
+
+    - name: docker-storage-setup
+      shell: docker-storage-setup
+
+    - name: enable docker
+      shell: systemctl enable docker && systemctl start docker
+
+    - name: Add repository
+      yum_repository:
+        name: okd
+        description: OKD 311 repo
+        baseurl: https://rpms.svc.ci.openshift.org/openshift-origin-v3.11/
+        gpgcheck: no
+
+# To Install
+# ansible-playbook prepare.yml -i inventory --key-file demoproject-key.pem
+
+# Stuff to check
+
+#pip install --upgrade setuptools
+#ansible-playbook openshift-ansible/playbooks/prerequisites.yml -i inventory --key-file demoproject-key.pem
+#ansible-playbook openshift-ansible/playbooks/deploy_cluster.yml -i inventory --key-file demoproject-key.pem
+
+# Add users
+
+#htpasswd -B -b /etc/origin/master/htpasswd <user> <password>
+#oc create clusterrolebinding registry-controller --clusterrole=cluster-admin --user=<username>
+#htpasswd -B -b /etc/origin/master/htpasswd admin <password>
+
+# Start / Stop
+#oc cluster down
+#oc cluster up
+
+# Install Tower
+#./setup_openshift.sh -e openshift_host=https://ec2-xxxxx.eu-west-1.compute.amazonaws.com:8443 -e openshift_project=tower -e openshift_user=<user> -e openshift_password=<password> -e admin_password=<password> -e secret_key=mysecret -e pg_username=postgresuser -e pg_password=postgrespwd -e rabbitmq_password=rabbitpwd -e rabbitmq_erlang_cookie=rabbiterlangpwd
+
+# To solve certs issue
+
+# yum install -y wget
+# mkdir /etc/rhsm/ca/ -p
+# mkdir /etc/docker/certs.d/registry.access.redhat.com/ -p
+# wget http://mirror.centos.org/centos/7/os/x86_64/Packages/python-rhsm-certificates-1.19.10-1.el7_4.x86_64.rpm
+# rpm2cpio python-rhsm-certificates-1.19.10-1.el7_4.x86_64.rpm | cpio -iv --to-stdout ./etc/rhsm/ca/redhat-uep.pem | tee /etc/rhsm/ca/redhat-uep.pem
+# chmod 400 /etc/rhsm/ca/redhat-uep.pem
+# ln -s /etc/rhsm/ca/redhat-uep.pem /etc/docker/certs.d/registry.access.redhat.com/redhat-ca.crt
+
+# Access Tower pod
+# oc -n tower exec -it ansible-tower-0 -c ansible-tower-web bash
+
+
+
