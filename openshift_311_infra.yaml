@@ -1,0 +1,185 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Metadata: {}
+
+Parameters:
+###########
+  KeyName:
+    Description: The EC2 Key Pair to allow SSH access to the instance
+    Type: 'AWS::EC2::KeyPair::KeyName'
+  AvailabilityZone:
+    Description: Availability zone to deploy
+    Type: AWS::EC2::AvailabilityZone::Name
+
+Mappings:
+#########
+  RegionMap:
+    eu-west-1:
+      CentOS7: "ami-0b850cf02cc00fdc8"
+
+Resources:
+
+  internetgatewayos:
+    Type: AWS::EC2::InternetGateway
+
+  gatewayattachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref internetgatewayos
+      #VpcId: !Ref openshiftvpc
+      VpcId: vpc-0f13c749bd2a0487c
+
+  routetable:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      #VpcId: !Ref openshiftvpc
+      VpcId: vpc-0f13c749bd2a0487c
+
+  subnetroutetableasoc:
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Properties:
+     RouteTableId: !Ref routetable
+     #SubnetId: !Ref subnet
+     SubnetId: subnet-0c28d59e828d1a7de
+
+  route:
+    Type: "AWS::EC2::Route"
+    Properties:
+      RouteTableId: !Ref routetable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref internetgatewayos
+
+  openshiftmaster:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      Tags:
+      - Key: Name
+        Value: openshift-master
+      InstanceType: t2.2xlarge
+      KeyName: !Ref KeyName
+      AvailabilityZone: !Ref AvailabilityZone
+      NetworkInterfaces:
+        - AssociatePublicIpAddress: "true"
+          DeviceIndex: "0"
+          #SubnetId: !Ref subnet
+          SubnetId: subnet-0c28d59e828d1a7de
+          GroupSet:
+             - !Ref mastersecgroup
+      ImageId: !FindInMap [RegionMap, !Ref "AWS::Region", CentOS7]
+
+  openshiftworker1:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      Tags:
+      - Key: Name
+        Value: openshift-worker1
+      InstanceType: t2.2xlarge
+      KeyName: !Ref KeyName
+      AvailabilityZone: !Ref AvailabilityZone
+      NetworkInterfaces:
+        - AssociatePublicIpAddress: "true"
+          DeviceIndex: "0"
+          SubnetId: subnet-0c28d59e828d1a7de
+          #SubnetId: !Ref subnet
+          GroupSet:
+             - !Ref workersecgroup
+      ImageId: !FindInMap [RegionMap, !Ref "AWS::Region", CentOS7]
+
+  openshiftworker2:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      Tags:
+      - Key: Name
+        Value: openshift-worker2
+      InstanceType: t2.2xlarge
+      KeyName: !Ref KeyName
+      AvailabilityZone: !Ref AvailabilityZone
+      NetworkInterfaces:
+        - AssociatePublicIpAddress: "true"
+          DeviceIndex: "0"
+          SubnetId: subnet-0c28d59e828d1a7de
+          #SubnetId: !Ref subnet
+          GroupSet:
+           - !Ref workersecgroup
+      ImageId: !FindInMap [RegionMap, !Ref "AWS::Region", CentOS7]
+
+  volume1:
+    Type: 'AWS::EC2::Volume'
+    Properties:
+      AvailabilityZone: !GetAtt openshiftmaster.AvailabilityZone
+      Size: 50
+    DeletionPolicy: Delete
+
+  volat1:
+    Type: AWS::EC2::VolumeAttachment
+    Properties:
+      Device: '/dev/xvdb'
+      VolumeId: !Ref volume1
+      InstanceId: !Ref openshiftmaster
+
+  volume2:
+    Type: 'AWS::EC2::Volume'
+    Properties:
+      AvailabilityZone: !GetAtt openshiftworker1.AvailabilityZone
+      Size: 50
+    DeletionPolicy: Delete
+
+  volat2:
+    Type: AWS::EC2::VolumeAttachment
+    Properties:
+      Device: '/dev/xvdb'
+      VolumeId: !Ref volume2
+      InstanceId: !Ref openshiftworker1
+
+  volume3:
+    Type: 'AWS::EC2::Volume'
+    Properties:
+      AvailabilityZone: !GetAtt openshiftworker2.AvailabilityZone
+      Size: 50
+    DeletionPolicy: Delete
+
+  volat3:
+    Type: AWS::EC2::VolumeAttachment
+    Properties:
+      Device: '/dev/xvdb'
+      VolumeId: !Ref volume3
+      InstanceId: !Ref openshiftworker2
+
+  workersecgroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      #VpcId: !Ref openshiftvpc
+      VpcId: vpc-0f13c749bd2a0487c
+      GroupDescription: Security group for the worker Kubernetes nodes
+      SecurityGroupIngress:
+      - IpProtocol: -1
+        FromPort: -1
+        ToPort: -1
+        CidrIp: 10.0.0.0/28
+      - IpProtocol: tcp
+        FromPort: '22'
+        ToPort: '22'
+        CidrIp: 0.0.0.0/0
+
+  mastersecgroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      #VpcId: !Ref openshiftvpc
+      VpcId: vpc-0f13c749bd2a0487c
+      GroupDescription: Security group for the master Kubernetes node
+      SecurityGroupIngress:
+      - IpProtocol: -1
+        FromPort: -1
+        ToPort: -1
+        CidrIp: 10.0.0.0/28
+      - IpProtocol: tcp
+        FromPort: '22'
+        ToPort: '22'
+        CidrIp: 0.0.0.0/0
+      - IpProtocol: tcp
+        FromPort: '8443'
+        ToPort: '8443'
+        CidrIp: 0.0.0.0/0
+      - IpProtocol: tcp
+        FromPort: '10250'
+        ToPort: '10250'
+        CidrIp: 0.0.0.0/0
