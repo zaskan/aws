@@ -1,0 +1,45 @@
+[all:vars]
+master_node:
+aws_access_key:
+aws_secret:
+
+
+[OSEv3:children]
+masters
+etcd
+nodes
+
+[OSEv3:vars]
+ansible_ssh_user=centos
+ansible_sudo=true
+ansible_become=true
+deployment_type=origin
+os_sdn_network_plugin_name='redhat/openshift-ovs-multitenant'
+openshift_install_examples=true
+openshift_docker_options='--selinux-enabled --insecure-registry 172.30.0.0/16'
+openshift_master_identity_providers=[{'name': 'htpasswd_auth', 'login': 'true', 'challenge': 'true', 'kind': 'HTPasswdPasswordIdentityProvider'}]
+openshift_master_htpasswd_users={'xadmin':'$apr1$phVYk0n5$pwDhse.VyQpcdersYcCVB','admin' : '$apr1$RUikUaj7$aaXQpOJDaSo4I98UZS82n.'}
+openshift_master_default_subdomain=apps.{{ master_node }}
+openshift_master_cluster_public_hostname={{ master_node }}
+openshift_master_cluster_hostname={{ master_node }}
+openshift_disable_check=disk_availability,docker_storage,memory_availability
+openshift_hosted_router_selector='node-role.kubernetes.io/infra=true'
+
+openshift_clusterid=demoproject
+# AWS (Using API Credentials)
+openshift_cloudprovider_kind=aws
+openshift_cloudprovider_aws_access_key="{{ aws_access_key }}"
+openshift_cloudprovider_aws_secret_key="{{ aws_secret }}"
+openshift_master_bootstrap_auto_approve=true
+
+#Change ips below by the real internal ones
+
+[masters]
+ip-10-0-0-9.eu-west-1.compute.internal
+
+[etcd]
+ip-10-0-0-9.eu-west-1.compute.internal
+[nodes]
+ip-10-0-0-9.eu-west-1.compute.internal openshift_node_group_name='node-config-master-infra' openshift_schedulable=true
+ip-10-0-0-10.eu-west-1.compute.internal openshift_node_group_name='node-config-compute'
+ip-10-0-0-12.eu-west-1.compute.internal openshift_node_group_name='node-config-compute'
