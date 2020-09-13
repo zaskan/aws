@@ -1,3 +1,4 @@
+# aws cloudformation create-stack --stack-name STACK_NAME --template-body file://ABS_PATH/openshift_311_infra.yaml --parameters ParameterKey=KeyName,ParameterValue=KEYNAME ParameterKey=AvailabilityZone,ParameterValue=eu-west-1
 AWSTemplateFormatVersion: '2010-09-09'
 Metadata: {}
 
