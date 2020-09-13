@@ -15,7 +15,7 @@ Mappings:
 #########
   RegionMap:
     eu-west-1:
-      CentOS7: "ami-0b850cf02cc00fdc8"
+      CentOS7: "ami-04370efd78434697b"
 
 Resources:
 
